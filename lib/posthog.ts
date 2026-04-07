@@ -18,8 +18,13 @@ export function initPostHog(): void {
   if (!key) return; // silently no-op until keys exist
   posthog.init(key, {
     api_host: host,
-    capture_pageview: true,
-    capture_pageleave: true,
+    // Pin to a known SDK defaults version so future PostHog releases don't
+    // silently change behavior. Bump intentionally when you want new features.
+    defaults: "2026-01-30",
+    // Only create a person profile when we explicitly call identify() (i.e.
+    // when a lead submits the form). Anonymous landing visitors share a
+    // bucket — keeps the PostHog person count (and bill) sane.
+    person_profiles: "identified_only",
   });
   initialized = true;
 }

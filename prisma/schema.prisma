@@ -1,0 +1,49 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  Founder
+  VPMarketing
+  CMO
+  Otro
+}
+
+enum AbVariant {
+  A
+  B
+}
+
+model Lead {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  email       String
+  role        Role
+  abVariant   AbVariant @map("ab_variant")
+  utmSource   String?   @map("utm_source")
+  utmMedium   String?   @map("utm_medium")
+  utmCampaign String?   @map("utm_campaign")
+  utmTerm     String?   @map("utm_term")
+  utmContent  String?   @map("utm_content")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([abVariant])
+  @@index([createdAt(sort: Desc)])
+  @@map("leads")
+}
+
+model AbAssignment {
+  id        String    @id @default(uuid()) @db.Uuid
+  variant   AbVariant
+  converted Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([variant])
+  @@map("ab_assignments")
+}
