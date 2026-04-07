@@ -32,9 +32,18 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# private notes (Juan Felipe + Claude only)
+/.claude-notes/
+
+# playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # typescript
 *.tsbuildinfo

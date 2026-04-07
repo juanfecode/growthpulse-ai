@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GrowthPulse AI — Landing Page
 
-## Getting Started
+A marketing landing + internal dashboard for **GrowthPulse AI**, a (fictional) tool that diagnoses where marketing budget gets wasted. Built as a technical assessment.
 
-First, run the development server:
+## Architecture Overview
+
+_TODO: diagram of flow → form → API route → Supabase + PostHog_
+
+## Stack & Why
+
+| Layer | Tool | Why |
+|---|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) | _TODO_ |
+| Styling | Tailwind CSS v4 | _TODO_ |
+| Database | Supabase (Postgres + RLS) | _TODO_ |
+| Analytics | PostHog | _TODO_ |
+| E2E tests | Playwright | _TODO_ |
+| Language | TypeScript (strict) | _TODO_ |
+| Deploy | Vercel | _TODO_ |
+
+## Key Decisions
+
+### A/B Testing Algorithm (50/50 Deterministic)
+
+_TODO: why we don't use `Math.random()` and how the Supabase counter works._
+
+### Honeypot Anti-bot
+
+_TODO: hidden `website` field, silently discard if filled._
+
+### Next.js App Router
+
+_TODO: Server Components by default, why App Router over Pages._
+
+## AI Tools Used
+
+_TODO: what Claude Code generated vs what Juan Felipe decided._
+
+## Trade-offs
+
+_TODO: what we sacrificed for time and what we'd do differently._
+
+## Setup Instructions
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in values
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+See `.env.example`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Running Tests
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx playwright test
+```
