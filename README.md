@@ -277,6 +277,7 @@ The collaboration model was strictly: Claude proposes options + trade-offs, Juan
 | A/B variants | Headline + eyebrow + CTA only | Enough to demonstrate the pattern; more variants = more noise. |
 | i18n | English only | Brief doesn't require it. |
 | Server-side `lead_submitted` | Flushed on every request (`flushAt: 1`) | Serverless functions die after the response; can't rely on batching. |
+| Supabase pooler TLS validation | Disabled in `lib/prisma.ts` (`sslmode=require` → `sslmode=no-verify`) | The connection is still TLS-encrypted; we skip CA validation because bundling Supabase's `prod-ca-2021.crt` into a serverless function is more friction than it's worth for this scope. Production would ship the CA cert and verify against it. |
 
 ---
 

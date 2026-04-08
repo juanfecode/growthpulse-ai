@@ -11,8 +11,17 @@ function createPrismaClient() {
   // The Supabase ↔ Vercel integration injects POSTGRES_PRISMA_URL automatically
   // (pooled, port 6543). Local dev uses DATABASE_URL from .env. Prefer the
   // Vercel-injected name in prod, fall back to DATABASE_URL locally.
-  const connectionString =
-    process.env.POSTGRES_PRISMA_URL ?? process.env.DATABASE_URL;
+  const raw = process.env.POSTGRES_PRISMA_URL ?? process.env.DATABASE_URL;
+
+  // Supabase's pooler presents a cert chain that Node's default CA bundle
+  // doesn't trust. The connection string ships with `sslmode=require` which
+  // forces full verification — we downgrade it to `no-verify` so the
+  // connection is still TLS-encrypted but skips CA validation. This is the
+  // documented Supabase + serverless pattern.
+  const connectionString = raw
+    ? raw.replace(/sslmode=require/g, "sslmode=no-verify")
+    : raw;
+
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
