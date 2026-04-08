@@ -9,6 +9,10 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DIRECT_URL"],
+    // Migrations need the direct (non-pooled) connection. The Supabase ↔ Vercel
+    // integration exposes it as POSTGRES_URL_NON_POOLING; local dev uses
+    // DIRECT_URL from .env. Prefer the integration var, fall back to local.
+    url:
+      process.env["POSTGRES_URL_NON_POOLING"] ?? process.env["DIRECT_URL"],
   },
 });

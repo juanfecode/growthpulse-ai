@@ -8,9 +8,12 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
-  });
+  // The Supabase ↔ Vercel integration injects POSTGRES_PRISMA_URL automatically
+  // (pooled, port 6543). Local dev uses DATABASE_URL from .env. Prefer the
+  // Vercel-injected name in prod, fall back to DATABASE_URL locally.
+  const connectionString =
+    process.env.POSTGRES_PRISMA_URL ?? process.env.DATABASE_URL;
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
 
