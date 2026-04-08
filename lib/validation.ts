@@ -26,9 +26,12 @@ export const leadSchema = z.object({
     error: () => "Pick the option that best describes you",
   }),
   // Honeypot: a hidden field real users never fill. Bots fill every input
-  // they find. If this comes back non-empty, we silently drop the request
-  // (return 200 so the bot thinks it worked and doesn't retry).
-  website: z.string().max(0).optional(),
+  // they find. We accept ANY string here so the schema validates; the route
+  // handler then checks for non-empty and silently returns a fake 200 so the
+  // bot thinks it worked and doesn't retry. (If we used `.max(0)` here, zod
+  // would reject the request with 400 and the bot would retry — defeating
+  // the purpose.)
+  website: z.string().optional(),
 
   // UTMs piggyback on the form submission. The LeadForm reads them from
   // window.location.search at mount time and stuffs them into hidden inputs.
