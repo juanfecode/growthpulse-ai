@@ -7,6 +7,14 @@ A marketing landing + lead capture system for **GrowthPulse AI**, a (fictional) 
 **Live demo:** https://growthpulse-ai-seven.vercel.app
 **Repo:** https://github.com/juanfecode/growthpulse-ai
 
+### For reviewers — internal dashboard
+
+After submitting the form on the landing page, the lead and its A/B conversion show up in the internal dashboard:
+
+**👉 https://growthpulse-ai-seven.vercel.app/dashboard?password=azarianJuanFe**
+
+You'll see total leads, conversion rate by variant (with a "winner" badge once one variant is more than 5 percentage points ahead), breakdowns by role and UTM source, and the latest 20 submissions in real time. The password gate is intentionally simple — query-param auth is documented as a trade-off below.
+
 ---
 
 ## What's built
@@ -22,8 +30,9 @@ A marketing landing + lead capture system for **GrowthPulse AI**, a (fictional) 
 | PostHog tracking (browser + server) | `lib/posthog.ts` + `lib/posthog-server.ts` + `components/providers/PostHogProvider.tsx` |
 | RLS hardening | `prisma/sql/enable_rls.sql` |
 | Health check | `app/api/health/route.ts` |
+| Internal metrics dashboard | `app/dashboard/page.tsx` + `lib/dashboard-metrics.ts` |
 
-**Still pending:** dashboard (`/dashboard`), Playwright E2E tests, this README's "screenshots" section. See [Roadmap](#roadmap).
+**Still pending:** Playwright E2E tests, this README's "screenshots" section. See [Roadmap](#roadmap).
 
 ---
 
