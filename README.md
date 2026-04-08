@@ -2,18 +2,38 @@
 
 > The honest friend who reads your dashboards.
 
-A marketing landing + lead capture system for **GrowthPulse AI**, a (fictional) SaaS that connects your marketing stack and delivers a 7-dimension growth diagnostic. Built as a technical assessment for Azarian Growth Agency.
+A landing + lead capture system for **GrowthPulse AI**, a (fictional) SaaS that connects a marketing stack and delivers a 7-dimension growth diagnostic. Built as the technical assessment for Azarian Growth Agency.
 
-**Live demo:** https://growthpulse-ai-seven.vercel.app
-**Repo:** https://github.com/juanfecode/growthpulse-ai
+| | |
+|---|---|
+| **Live demo** | https://growthpulse-ai-seven.vercel.app |
+| **Internal dashboard** | https://growthpulse-ai-seven.vercel.app/dashboard?password=azarianJuanFe |
+| **Repo** | https://github.com/juanfecode/growthpulse-ai |
+| **Stack** | Next.js 16 · TypeScript · Tailwind v4 · Prisma v7 · Supabase Postgres · PostHog · Playwright · Vercel |
 
-### For reviewers — internal dashboard
+---
 
-After submitting the form on the landing page, the lead and its A/B conversion show up in the internal dashboard:
+## For reviewers
 
-**👉 https://growthpulse-ai-seven.vercel.app/dashboard?password=azarianJuanFe**
+Submit the form on the landing page → the lead is persisted, the matching A/B assignment is flipped to `converted`, and the entry shows up immediately in the dashboard above. The dashboard is read-only and password-gated; the password is shared in the table above so you can open it directly.
 
-You'll see total leads, conversion rate by variant (with a "winner" badge once one variant is more than 5 percentage points ahead), breakdowns by role and UTM source, and the latest 20 submissions in real time. The password gate is intentionally simple — query-param auth is documented as a trade-off below.
+You'll see total leads, conversion rate by variant (with a "winner" badge once one variant is more than 5 percentage points ahead), breakdowns by role and UTM source, and the latest 20 submissions. The query-param auth is intentionally simple — listed as a documented trade-off below.
+
+---
+
+## Screenshots
+
+**Landing — variant A** (rational angle: "Your marketing stack has a leak")
+![Landing variant A](docs/screenshots/landing-variant-a.png)
+
+**Landing — variant B** (emotional angle: "Stop guessing. Start growing.")
+![Landing variant B](docs/screenshots/landing-variant-b.png)
+
+**Dashboard — KPIs and conversion by variant** (B is winning at the time of capture, +13.6 pp over A)
+![Dashboard top](docs/screenshots/dashboard-top.png)
+
+**Dashboard — recent leads table**
+![Recent leads](docs/screenshots/dashboard-recent-leads.png)
 
 ---
 
@@ -25,29 +45,13 @@ You'll see total leads, conversion rate by variant (with a "winner" badge once o
 | Lead capture form | `components/forms/LeadForm.tsx` |
 | Lead API (validation + insert + conversion tracking) | `app/api/leads/route.ts` |
 | Personalized thank-you page | `app/thank-you/page.tsx` |
-| A/B testing (deterministic 50/50) | `lib/ab-testing.ts` + `middleware.ts` |
+| A/B testing (deterministic 50/50 via middleware) | `lib/ab-testing.ts` + `middleware.ts` |
 | UTM parsing | `lib/utm.ts` |
 | PostHog tracking (browser + server) | `lib/posthog.ts` + `lib/posthog-server.ts` + `components/providers/PostHogProvider.tsx` |
-| RLS hardening | `prisma/sql/enable_rls.sql` |
-| Health check | `app/api/health/route.ts` |
 | Internal metrics dashboard | `app/dashboard/page.tsx` + `lib/dashboard-metrics.ts` |
-
-**Still pending:** Playwright E2E tests, this README's "screenshots" section. See [Roadmap](#roadmap).
-
----
-
-## Stack
-
-| Layer | Tool | Why |
-|---|---|---|
-| Framework | **Next.js 16** (App Router, Turbopack) | Server Components for fast SSR, file-based routing, native middleware with Node runtime support |
-| Language | **TypeScript** strict | Catches schema/UI drift at compile-time, especially across the DB ↔ form boundary |
-| Styling | **Tailwind CSS v4** | Iteration speed, implicit design system, no extra CSS files |
-| ORM | **Prisma v7** + `@prisma/adapter-pg` | Auto-generated types from `schema.prisma`, first-class connection pooling |
-| Database | **Supabase Postgres** | Managed Postgres + dashboard + RLS + PgBouncer pooler |
-| Validation | **zod** v4 | One schema (`lib/validation.ts`) shared by client and server — single source of truth |
-| Analytics | **PostHog** (`person_profiles: identified_only`) | Product analytics + funnel tracking + cost-controlled (anonymous visitors share a bucket) |
-| Hosting | **Vercel** | 1-click deploy from GitHub, env vars per environment, supports `runtime: "nodejs"` middleware |
+| RLS hardening | `prisma/sql/enable_rls.sql` |
+| Playwright E2E tests (9 specs) | `tests/*.spec.ts` |
+| Health check | `app/api/health/route.ts` |
 
 ---
 
@@ -55,9 +59,7 @@ You'll see total leads, conversion rate by variant (with a "winner" badge once o
 
 ### 1. A/B testing is deterministic, not random
 
-`Math.random() < 0.5` is fine for millions of impressions but **biases hard at low traffic**. With 20 visitors you can easily end up 14/6.
-
-Instead, on every first visit the middleware queries `SELECT COUNT(*) FROM ab_assignments`. Even count → variant A. Odd count → variant B. Then it inserts a new row. Result: an exact `A,B,A,B,…` sequence — 50/50 guaranteed regardless of traffic.
+`Math.random() < 0.5` biases hard at low traffic — with 20 visitors you can easily end up 14/6. Instead, on every first visit the middleware queries `SELECT COUNT(*) FROM ab_assignments`. Even count → variant A. Odd count → variant B. Then it inserts a new row. Result: an exact `A,B,A,B,…` sequence — 50/50 guaranteed regardless of traffic.
 
 ```ts
 // lib/ab-testing.ts
@@ -73,26 +75,37 @@ export async function assignNextAssignment(): Promise<Assignment> {
 
 ### 2. The cookie stores the row id, not just the variant
 
-The naive approach is to store `gp_variant=A` in a cookie and, on conversion, run `UPDATE ab_assignments SET converted=true WHERE variant='A' AND converted=false`. **That marks every visitor in variant A as converted** — bug that destroys your conversion rate.
+The naive approach is to store `gp_variant=A` in a cookie and, on conversion, run `UPDATE ab_assignments SET converted=true WHERE variant='A' AND converted=false`. **That marks every visitor in variant A as converted** — a bug that destroys the conversion rate.
 
-We store **two** cookies: `gp_variant` (for the UI) and `gp_assignment` (the row UUID). Conversion is `UPDATE … WHERE id=…`, so each visitor flips their own row exactly once.
+The fix is two cookies: `gp_variant` (for the UI) and `gp_assignment` (the row UUID). Conversion is `UPDATE … WHERE id=…`, so each visitor flips their own row exactly once.
 
 ### 3. Middleware runs on Node, not Edge
 
-Prisma can't run on Vercel's Edge runtime. The two options are (a) the Prisma Data Proxy (slow, paid) or (b) forcing the middleware to Node with `export const config = { runtime: "nodejs" }`. We chose (b) — supported in Next 15+, minimal latency overhead, free.
+Prisma can't run on Vercel's Edge runtime. The two options are (a) Prisma Data Proxy (slow, paid) or (b) `export const config = { runtime: "nodejs" }`. Option (b) — supported in Next 15+, minimal latency overhead, free.
 
 ### 4. RLS even though we use Prisma
 
-Prisma connects as `postgres` super-user, so it bypasses RLS — every Prisma query works. **But Supabase also exposes a public REST API at `/rest/v1/leads` using the `anon` key that ships in the browser bundle.** Without RLS, anyone could `fetch()` that endpoint from DevTools and exfiltrate every lead.
+Prisma connects as the `postgres` super-user, so it bypasses RLS — every Prisma query works. **But Supabase also exposes a public REST API at `/rest/v1/leads` using the `anon` key that ships in the browser bundle.** Without RLS, anyone could `fetch()` that endpoint from DevTools and exfiltrate every lead.
 
-We enabled RLS on `leads` and `ab_assignments` with **zero policies for `anon`**, fully blocking the REST surface. Prisma server-side keeps working because it connects as super-user. Defense in depth.
+`prisma/sql/enable_rls.sql` enables RLS on `leads` and `ab_assignments` with **zero policies for `anon`**, fully blocking the REST surface. Prisma server-side keeps working because it connects as super-user. Defense in depth.
 
-```sql
--- prisma/sql/enable_rls.sql (excerpt)
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ab_assignments ENABLE ROW LEVEL SECURITY;
--- no policies for anon — REST API is fully blocked
-```
+---
+
+## Technical challenges that took real time
+
+The interesting bugs and the workarounds, in chronological order.
+
+**1. Prisma v7 ≠ Prisma v6.** The `@prisma/adapter-pg` adapter is now mandatory; the `datasource` block in `schema.prisma` no longer takes a `url` (it's passed to the adapter in code); `previewFeatures = ["driverAdapters"]` is removed; `prisma.config.ts` (new in v7) must point at the **direct** connection (port 5432), not the pooled one. None of this is in older tutorials. The fix is in `lib/prisma.ts` and `prisma.config.ts`.
+
+**2. Supabase pooler TLS validation.** Vercel functions failed with `Error opening a TLS connection: self-signed certificate in certificate chain` against Supabase's pooler. Node's default CA bundle doesn't trust Supabase's chain. The connection string ships with `sslmode=require` which forces full verification — `lib/prisma.ts` rewrites it to `sslmode=no-verify` at runtime. Encryption is preserved; only CA validation is skipped. Production at scale would bundle Supabase's `prod-ca-2021.crt`.
+
+**3. Vercel ↔ Supabase env var naming.** The official Vercel-Supabase integration auto-injects `POSTGRES_PRISMA_URL` and `POSTGRES_URL_NON_POOLING`, not `DATABASE_URL` / `DIRECT_URL`. First production deploy crashed with `Can't reach database server at 127.0.0.1:5432` because Prisma fell back to its default. Fixed by reading the integration var first with a local `.env` fallback so dev still works.
+
+**4. Vercel build was missing the Prisma client.** `prisma generate` doesn't run on Vercel by default. The build crashed importing types from `@/lib/generated/prisma`. Fixed in `package.json`: both `postinstall` and `build` run `prisma generate`.
+
+**5. Next.js 16 made `searchParams` a Promise.** Quietly breaks the dashboard and `/thank-you` if you treat it like the old object. Both pages now `await` it.
+
+**6. Honeypot was actually broken — caught by tests.** The `lib/validation.ts` schema had `website: z.string().max(0)`, so when a bot filled the field, **zod rejected the whole request with 400 before the route handler could return its silent fake-200**. Bots would then retry, defeating the honeypot. Found because the Playwright spec for `/api/leads` expected 200 and got 400. Loosened to `z.string().optional()` so the runtime check in the route handler is the only gate.
 
 ---
 
@@ -109,8 +122,7 @@ middleware.ts (Node runtime)
         ▼
 app/page.tsx (Server Component)
   • reads gp_variant cookie → picks HERO_VARIANTS[A|B]
-  • renders <Header/> <Hero/> <FeaturesSection/> <CustomerStory/>
-            <PricingSection/> <FinalCta> with <LeadForm/> </FinalCta> <Footer/>
+  • renders the 5 landing sections
         │
         ▼ (user fills form)
 components/forms/LeadForm.tsx ("use client")
@@ -125,33 +137,42 @@ app/api/leads/route.ts (Node runtime)
   • prisma.lead.create({ ... abVariant from cookie })
   • markConverted(assignmentId)        ← flips ab_assignments.converted
   • posthogServer.capture("lead_submitted", { distinctId: email })
-  • return { ok: true, role }
         │
         ▼
 LeadForm
-  • posthog.identify(email, { role })  ← links anonymous → person profile
+  • posthog.identify(email, { role })  ← anonymous → person profile
   • router.push(`/thank-you?role=${role}`)
         │
         ▼
 app/thank-you/page.tsx (Server Component)
   • reads ?role= from searchParams (Promise in Next 16)
-  • renders role-specific copy
+  • renders role-specific copy (Founder / VPMarketing / CMO / Otro)
 ```
 
 ---
 
 ## PostHog: two SDKs, one project
 
-PostHog has two halves and we use both:
-
 | SDK | File | Runs in | Fires |
 |---|---|---|---|
 | `posthog-js` | `lib/posthog.ts` + `components/providers/PostHogProvider.tsx` | Browser | `form_started`, `form_error`, `lead_submitted_client`, `identify(email)` |
 | `posthog-node` | `lib/posthog-server.ts` | Node runtime (API route) | `lead_submitted` |
 
-The browser SDK runs `identify(email)` to link the anonymous visitor to a person profile (cheap, because we use `person_profiles: "identified_only"` to keep the bill sane). The server SDK fires `lead_submitted` from inside `/api/leads` after the DB insert succeeds — that's the source of truth, because the browser event can be lost if the user closes the tab between submit and redirect.
+The browser SDK calls `identify(email)` to link the anonymous visitor to a person profile. The server SDK fires `lead_submitted` from inside `/api/leads` after the DB insert succeeds — that's the source of truth, because the browser event can be lost if the user closes the tab. Both clients read the same project key from `NEXT_PUBLIC_POSTHOG_KEY`. We use `person_profiles: "identified_only"` to keep PostHog's bill sane (anonymous visitors share a bucket).
 
-Both clients read the same project key from `NEXT_PUBLIC_POSTHOG_KEY` (the `NEXT_PUBLIC_` prefix only controls bundle exposure — server code can read it too).
+---
+
+## Tests
+
+`tests/` contains 9 Playwright specs across 3 files. Run with `npm run test:e2e` (assumes `npm run dev` is up in another terminal).
+
+| Spec | What it covers |
+|---|---|
+| `tests/landing.spec.ts` | Happy path: visit `/` → see features + pricing → fill form → assert redirect to `/thank-you?role=Founder` with personalized copy. Plus client validation rejecting a bad email. |
+| `tests/api-leads.spec.ts` | `POST /api/leads` contract: invalid email → 400 + `errors.email`, missing role → 400, honeypot filled → silent 200, valid payload → 200 + role echoed. |
+| `tests/dashboard.spec.ts` | Auth gate: no password → password prompt; wrong password → "Wrong password" error; correct password → metrics shell renders. |
+
+The test suite found a real bug (see Technical Challenges #6).
 
 ---
 
@@ -194,16 +215,18 @@ git clone git@github.com:juanfecode/growthpulse-ai.git
 cd growthpulse-ai
 npm install                    # runs prisma generate via postinstall
 
-# create .env with the 6 vars below
-cp .env.example .env           # fill in real values
+# create .env with the variables below
+cp .env.example .env           # then fill in real values
 
 npx prisma migrate deploy      # apply the migration to your Supabase DB
 
-# one-time: enable RLS in Supabase SQL Editor
-# paste the contents of prisma/sql/enable_rls.sql
+# one-time: enable RLS in Supabase SQL Editor by pasting prisma/sql/enable_rls.sql
 
 npm run dev                    # http://localhost:3000
 curl localhost:3000/api/health # → {"ok":true,"db":"connected",...}
+
+# (optional) end-to-end tests in another terminal
+npm run test:e2e
 ```
 
 ### Required environment variables
@@ -213,11 +236,15 @@ curl localhost:3000/api/health # → {"ok":true,"db":"connected",...}
 DATABASE_URL=postgresql://...:6543/postgres?pgbouncer=true
 DIRECT_URL=postgresql://...:5432/postgres
 
+# Or, if you use the Vercel ↔ Supabase integration, these names are auto-injected
+# and the code prefers them with the above as fallbacks:
+# POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING
+
 # PostHog — same project key, different exposure
 NEXT_PUBLIC_POSTHOG_KEY=phc_...
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 
-# Dashboard auth (used in Bloque 5)
+# Dashboard auth
 DASHBOARD_PASSWORD=...
 ```
 
@@ -229,13 +256,17 @@ DASHBOARD_PASSWORD=...
 app/
   api/
     health/route.ts        ← DB connectivity probe
-    leads/route.ts         ← POST handler: validate → insert → mark converted → PostHog
+    leads/route.ts         ← POST: validate → insert → mark converted → PostHog
+  dashboard/
+    page.tsx               ← Server Component, password gate, Promise.all of 6 metrics
+    loading.tsx            ← skeleton served by Next during navigation
   thank-you/page.tsx       ← role-personalized confirmation
   layout.tsx               ← metadata, fonts, mounts <PostHogProvider>
   page.tsx                 ← Server Component, reads variant cookie, composes landing
+  icon.svg                 ← favicon (Next 16 auto-serves it)
 
 components/
-  landing/                 ← presentational sections (Header, Hero, FeaturesSection, ...)
+  landing/                 ← Header, Hero, FeaturesSection, CustomerStory, PricingSection, FinalCta, Footer, LandingBackground
   forms/LeadForm.tsx       ← Client Component
   providers/PostHogProvider.tsx
 
@@ -243,10 +274,11 @@ lib/
   ab-testing.ts            ← assignNextAssignment, markConverted, type guards
   utm.ts                   ← parseUtmParams (shared by form and API)
   validation.ts            ← zod schema (shared client/server)
-  prisma.ts                ← Prisma singleton + adapter-pg
+  prisma.ts                ← Prisma singleton + adapter-pg + Supabase TLS workaround
   posthog.ts               ← browser SDK init
   posthog-server.ts        ← Node SDK singleton
   landing-content.ts       ← copy for both A/B variants
+  dashboard-metrics.ts     ← 6 read-only Prisma queries, each independently testable
 
 middleware.ts              ← Node runtime, matcher /, sets gp_variant + gp_assignment cookies
 
@@ -255,21 +287,22 @@ prisma/
   migrations/...
   sql/enable_rls.sql       ← versioned, idempotent
 
-.claude-notes/             ← gitignored: brief, README draft, state for future sessions
+tests/
+  landing.spec.ts          ← happy path + client validation
+  api-leads.spec.ts        ← /api/leads contract (4 cases)
+  dashboard.spec.ts        ← auth gate
+
+docs/screenshots/          ← README assets
 ```
 
 ---
 
 ## AI tools used
 
-This project was built with **Claude Code** (Sonnet 4.6 + Opus 4.6) as the primary pair-programming assistant. Concretely:
-
-- **Architecture discussions** before each block (options, trade-offs, decision, then code) — "discuss before coding" was the explicit collaboration rule.
-- **Boilerplate generation** for Prisma config, middleware, Tailwind UI, and the zod schema.
-- **Debugging** of Prisma v7 quirks (the adapter is mandatory, the datasource doesn't take a `url`, `prisma.config.ts` must point to `DIRECT_URL`), Vercel build (postinstall + build both run `prisma generate`), and Next 16 changes (`searchParams` is a `Promise`).
-- **Persistent memory** between sessions via Claude Code's file-based memory at `~/.claude/projects/.../memory/` — kept the brief, collaboration rules, and project state across days so the assistant didn't "forget" the project on restart.
-
-The collaboration model was strictly: Claude proposes options + trade-offs, Juan Felipe decides, Claude executes. Every commit is reviewed and signed off manually (no auto-merging from the AI).
+- **Claude Code (Sonnet 4.6 + Opus 4.6)** as the primary pair-programming assistant.
+- Used for: architecture discussions before each block, boilerplate generation (Prisma config, middleware, Tailwind UI, zod schema), debugging the technical challenges listed above, and writing the test suite.
+- Persistent memory between sessions via Claude Code's file-based memory at `~/.claude/projects/.../memory/` — kept the brief, collaboration rules, and project state across sessions.
+- Collaboration model: AI proposes options + trade-offs, the human decides, AI executes. Every commit is reviewed and merged manually (no auto-merging from the AI). This is reflected in the commit history — branch per feature, PR-based merges, no squash.
 
 ---
 
@@ -278,32 +311,18 @@ The collaboration model was strictly: Claude proposes options + trade-offs, Juan
 | Decision | What we did | Why |
 |---|---|---|
 | Form rate limiting | Skipped | Demo, not production. In prod: Vercel KV or Upstash Redis with `@upstash/ratelimit`. |
-| Anti-bot | Honeypot field `website` only | Captcha would hurt conversion and isn't justified at this scale. |
-| Dashboard auth | `?password=` query param (planned) | Faster than NextAuth for a single evaluator. In prod: HTTP-only session cookie + proper auth. |
+| Anti-bot | Honeypot field `website` only | Captcha would hurt conversion at this scale. Honeypot bug surfaced and fixed by Playwright tests. |
+| Dashboard auth | `?password=` query param | Faster than NextAuth for a single reviewer flow. In prod: HTTP-only session cookie + proper auth provider. |
 | `updateMany` on conversion | Replaced with `update WHERE id=...` via second cookie | Naive approach would mark every variant-A visitor as converted — fixed proactively. |
-| Component extraction | `components/landing/*` feature-grouped | Aligns with the convention used in our other Next.js projects, easier to navigate. |
+| Component layout | `components/landing/*` feature-grouped | Aligns with the convention used in our other Next.js projects. |
 | PostHog session replay | Off | Privacy + cost. Events only. |
 | A/B variants | Headline + eyebrow + CTA only | Enough to demonstrate the pattern; more variants = more noise. |
-| i18n | English only | Brief doesn't require it. |
 | Server-side `lead_submitted` | Flushed on every request (`flushAt: 1`) | Serverless functions die after the response; can't rely on batching. |
-| Supabase pooler TLS validation | Disabled in `lib/prisma.ts` (`sslmode=require` → `sslmode=no-verify`) | The connection is still TLS-encrypted; we skip CA validation because bundling Supabase's `prod-ca-2021.crt` into a serverless function is more friction than it's worth for this scope. Production would ship the CA cert and verify against it. |
-
----
-
-## Roadmap
-
-| Block | Branch | Status |
-|---|---|---|
-| RLS policies | `feat/rls-policies` | ✅ merged (#1) |
-| A/B testing | `feat/ab-testing` | ✅ merged (#2) |
-| Landing page | `feat/landing` | ✅ merged (#3) |
-| Lead form + API + thank-you | `feat/lead-form` | 🟡 PR open (#4) |
-| Dashboard with metrics | `feat/dashboard` | ⏳ next |
-| Playwright E2E tests | `feat/playwright-tests` | ⏳ |
-| README polish + screenshots | `chore/readme-final` | ⏳ |
+| Supabase pooler TLS validation | Disabled (`sslmode=require` → `sslmode=no-verify`) | Connection is still TLS-encrypted; CA validation skipped. Production would bundle `prod-ca-2021.crt`. |
+| i18n | English only | Brief doesn't require it. |
 
 ---
 
 ## Commit history
 
-This repo follows a strict **branch-per-feature → PR → merge** workflow. The commit log shows the build broken into logical, reviewable units instead of a single squashed commit. See [closed PRs](https://github.com/juanfecode/growthpulse-ai/pulls?q=is%3Apr+is%3Aclosed).
+Strict **branch-per-feature → PR → merge** workflow. The log shows the build broken into reviewable units instead of a single squashed commit. See [closed PRs](https://github.com/juanfecode/growthpulse-ai/pulls?q=is%3Apr+is%3Aclosed).
