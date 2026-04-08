@@ -24,31 +24,33 @@ export const HERO_VARIANTS: Record<AbVariant, HeroContent> = {
   },
 };
 
+// Icons are imported by name in FeaturesSection.tsx (lucide-react). Using
+// string identifiers here keeps this file framework-free and serializable.
 export const FEATURES = [
   {
     title: "One-Click Stack Integration",
     desc: "Connects to HubSpot, Google Analytics, Meta Ads, Klaviyo, Salesforce, and 30+ tools via API in under 5 minutes.",
-    icon: "⚡",
+    icon: "Plug",
   },
   {
     title: "7-Dimension Growth Score",
     desc: "Proprietary algorithm rates acquisition, activation, retention, revenue, referral, SEO health, and paid efficiency on a 0–100 scale — benchmarked against industry peers.",
-    icon: "📊",
+    icon: "Gauge",
   },
   {
     title: "AI-Generated Action Plan",
     desc: "A prioritized 90-day roadmap with specific recommendations ranked by expected impact and effort. No more guessing what to fix first.",
-    icon: "🧭",
+    icon: "Compass",
   },
   {
     title: "Executive Summary Report",
     desc: "Auto-generates a board-ready PDF with key findings, visualized scores, and strategic recommendations your CEO will actually read.",
-    icon: "📄",
+    icon: "FileText",
   },
   {
     title: "Live Dashboard",
     desc: "Real-time monitoring of all 7 dimensions with alerts when performance dips below benchmarks. Catch problems before they become quarters.",
-    icon: "📈",
+    icon: "LineChart",
   },
 ] as const;
 
